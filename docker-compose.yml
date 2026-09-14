@@ -1,0 +1,196 @@
+# ------------------------------------------------------------------
+# AI Vendor Outreach Platform - production stack
+#
+#   cp .env.example .env   # then edit secrets
+#   docker compose up -d --build
+#
+# Services: reverse-proxy (nginx) -> frontend (Next.js), api (FastAPI)
+# plus worker (outbound dispatcher), scheduler (queue maintenance),
+# postgres (state) and redis (rate limiting / integrations).
+# ------------------------------------------------------------------
+name: ai-vendor-outreach
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-outreach}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outreach-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-outreach}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-outreach} -d ${POSTGRES_DB:-outreach}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment: &backend-env
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (openssl rand -hex 32)}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-outreach}:${POSTGRES_PASSWORD:-outreach-change-me}@postgres:5432/${POSTGRES_DB:-outreach}
+      REDIS_URL: redis://redis:6379/0
+      BASE_URL: ${BASE_URL:-http://localhost}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-}
+      # --- AI (OpenRouter / OpenAI-compatible) ---
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_MODEL: ${LLM_MODEL:-openai/gpt-4o-mini}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.3}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-900}
+      AI_REPLY_MODE: ${AI_REPLY_MODE:-delayed}
+      AI_REPLY_MIN_DELAY_MINUTES: ${AI_REPLY_MIN_DELAY_MINUTES:-3}
+      AI_REPLY_MAX_DELAY_MINUTES: ${AI_REPLY_MAX_DELAY_MINUTES:-10}
+      # --- Gmail ---
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      GMAIL_TRANSPORT: ${GMAIL_TRANSPORT:-auto}
+      GMAIL_SENDER_EMAIL: ${GMAIL_SENDER_EMAIL:-}
+      GMAIL_SENDER_NAME: ${GMAIL_SENDER_NAME:-}
+      GMAIL_TOKEN_FILE: /srv/app/data/gmail_token.json
+      GMAIL_PLAIN_TEXT: ${GMAIL_PLAIN_TEXT:-false}
+      # --- Discovery / research ---
+      DISCOVERY_PROVIDER: ${DISCOVERY_PROVIDER:-demo}
+      DISCOVERY_API_URL: ${DISCOVERY_API_URL:-}
+      DISCOVERY_API_KEY: ${DISCOVERY_API_KEY:-}
+      RESEARCH_USER_AGENT: ${RESEARCH_USER_AGENT:-}
+      # --- Telegram ---
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      # --- Sending defaults ---
+      SEND_BATCH_SIZE: ${SEND_BATCH_SIZE:-1}
+      SEND_MIN_DELAY_MINUTES: ${SEND_MIN_DELAY_MINUTES:-5}
+      SEND_MAX_DELAY_MINUTES: ${SEND_MAX_DELAY_MINUTES:-12}
+      DAILY_MAX_EMAILS: ${DAILY_MAX_EMAILS:-30}
+      SENDING_START_HOUR: ${SENDING_START_HOUR:-9}
+      SENDING_END_HOUR: ${SENDING_END_HOUR:-17}
+      SENDING_DAYS: ${SENDING_DAYS:-1,2,3,4,5}
+      CAMPAIGN_TIMEZONE: ${CAMPAIGN_TIMEZONE:-America/New_York}
+      # --- Worker / scheduler ---
+      DISPATCH_INTERVAL_SECONDS: ${DISPATCH_INTERVAL_SECONDS:-60}
+      SCHEDULER_INTERVAL_SECONDS: ${SCHEDULER_INTERVAL_SECONDS:-300}
+      JOB_RETENTION_DAYS: ${JOB_RETENTION_DAYS:-30}
+      JOB_STALE_AFTER_SECONDS: ${JOB_STALE_AFTER_SECONDS:-300}
+    volumes:
+      - appdata:/srv/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "app.workers.worker"]
+    environment: *backend-env
+    volumes:
+      - appdata:/srv/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.workers.deps_ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "app.workers.scheduler"]
+    environment: *backend-env
+    volumes:
+      - appdata:/srv/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.workers.deps_ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      # Uncomment for TLS termination on the proxy (see docs/deployment.md):
+      # - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
+      # TLS certificates (mounted when you add the 443 listener):
+      # - ./infra/certs:/etc/nginx/certs:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+volumes:
+  pgdata:
+  redisdata:
+  appdata:

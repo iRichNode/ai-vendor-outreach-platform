@@ -1,0 +1,67 @@
+GET    /api/analytics/dashboard                                Analytics Dashboard
+GET    /api/analytics/funnel                                   Analytics Funnel
+GET    /api/analytics/summary                                  Analytics Summary
+POST   /api/auth/login                                         Login
+POST   /api/auth/logout                                        Logout
+GET    /api/auth/me                                            Me
+GET    /api/campaigns                                          List Campaigns
+POST   /api/campaigns                                          Create Campaign
+GET    /api/campaigns/{campaign_id}                            Get Campaign
+PATCH  /api/campaigns/{campaign_id}                            Patch Campaign
+DELETE /api/campaigns/{campaign_id}                            Delete Campaign
+POST   /api/campaigns/{campaign_id}/state                      Campaign State
+POST   /api/campaigns/{campaign_id}/vendors                    Add Vendors
+GET    /api/campaigns/{campaign_id}/vendors                    List Campaign Vendors
+GET    /api/conversations                                      List Conversations
+GET    /api/conversations/{conversation_id}                    Get Conversation
+POST   /api/conversations/{conversation_id}/action             Conversation Action
+POST   /api/conversations/{conversation_id}/mark-interest      Mark Interest
+POST   /api/conversations/{conversation_id}/mark-qualified     Mark Qualified
+POST   /api/conversations/{conversation_id}/meeting-link       Register Meeting Link
+POST   /api/conversations/{conversation_id}/messages           Send Manual Message
+POST   /api/conversations/{conversation_id}/notes              Add Note
+GET    /api/dashboard                                          Dashboard
+GET    /api/health                                             Liveness check
+GET    /api/health/full                                        Dependency health check
+GET    /api/integrations/gmail/auth-url                        Gmail Auth Url
+GET    /api/integrations/gmail/callback                        Gmail Callback
+POST   /api/integrations/gmail/disconnect                      Gmail Disconnect
+GET    /api/integrations/gmail/status                          Gmail Status
+GET    /api/integrations/telegram/status                       Telegram Status
+POST   /api/integrations/telegram/test                         Telegram Test
+GET    /api/meetings                                           List Meetings
+GET    /api/meetings/{meeting_id}                              Get Meeting
+POST   /api/meetings/{meeting_id}/cancel                       Cancel Meeting
+POST   /api/meetings/{meeting_id}/complete                     Complete Meeting
+POST   /api/meetings/{meeting_id}/mark-scheduled               Mark Scheduled
+POST   /api/meetings/{meeting_id}/send-invitation              Send Invitation
+GET    /api/notifications                                      List Notifications
+POST   /api/notifications/clear                                Clear Read
+POST   /api/notifications/read                                 Mark Read
+GET    /api/notifications/unread-count                         Unread Count
+GET    /api/queue                                              List Jobs
+GET    /api/queue/global-pause                                 Global Pause Status
+POST   /api/queue/global-pause                                 Set Global Pause
+POST   /api/queue/purge                                        Purge Queue
+GET    /api/queue/stats                                        Queue Stats
+POST   /api/queue/{job_id}/cancel                              Cancel Job
+POST   /api/queue/{job_id}/pause                               Pause Job
+POST   /api/queue/{job_id}/reschedule                          Reschedule Job
+POST   /api/queue/{job_id}/resume                              Resume Job
+POST   /api/queue/{job_id}/retry                               Retry Job
+GET    /api/settings                                           Get Settings
+GET    /api/settings/schema                                    Get Settings Schema
+PUT    /api/settings/{section}                                 Update Settings
+POST   /api/setup/complete                                     Complete Setup
+GET    /api/setup/status                                       Setup Status
+GET    /api/vendors                                            List Vendors
+POST   /api/vendors                                            Create Vendor
+POST   /api/vendors/discover                                   Discover Vendors
+POST   /api/vendors/import/csv                                 Import Csv
+POST   /api/vendors/import/paste                               Import Paste
+GET    /api/vendors/meta                                       Vendor Meta
+GET    /api/vendors/{vendor_id}                                Get Vendor
+PATCH  /api/vendors/{vendor_id}                                Patch Vendor
+DELETE /api/vendors/{vendor_id}                                Delete Vendor
+POST   /api/vendors/{vendor_id}/research                       Research Vendor
+POST   /api/vendors/{vendor_id}/status                         Patch Vendor Status

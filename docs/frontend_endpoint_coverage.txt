@@ -1,0 +1,67 @@
+WIRED   GET   /api/analytics/dashboard   <- lib/api.ts:269
+WIRED   GET   /api/analytics/funnel   <- lib/api.ts:270
+WIRED   GET   /api/analytics/summary   <- lib/api.ts:271
+WIRED   POST  /api/auth/login   <- lib/api.ts:157
+WIRED   POST  /api/auth/logout   <- lib/api.ts:158
+WIRED   GET   /api/auth/me   <- app/page.tsx:9
+WIRED   GET   /api/campaigns   <- lib/api.ts:191
+WIRED   POST  /api/campaigns   <- lib/api.ts:191
+WIRED   GET   /api/campaigns/{campaign_id}   <- lib/api.ts:192
+WIRED   PATCH /api/campaigns/{campaign_id}   <- lib/api.ts:192
+WIRED   DELETE/api/campaigns/{campaign_id}   <- lib/api.ts:192
+WIRED   POST  /api/campaigns/{campaign_id}/state   <- lib/api.ts:198
+WIRED   POST  /api/campaigns/{campaign_id}/vendors   <- lib/api.ts:200
+WIRED   GET   /api/campaigns/{campaign_id}/vendors   <- lib/api.ts:200
+WIRED   GET   /api/conversations   <- lib/api.ts:208
+WIRED   GET   /api/conversations/{conversation_id}   <- lib/api.ts:209
+WIRED   POST  /api/conversations/{conversation_id}/action   <- lib/api.ts:213
+WIRED   POST  /api/conversations/{conversation_id}/mark-interest   <- lib/api.ts:215
+WIRED   POST  /api/conversations/{conversation_id}/mark-qualified   <- lib/api.ts:217
+WIRED   POST  /api/conversations/{conversation_id}/meeting-link   <- lib/api.ts:219
+WIRED   POST  /api/conversations/{conversation_id}/messages   <- lib/api.ts:211
+WIRED   POST  /api/conversations/{conversation_id}/notes   <- lib/api.ts:221
+WIRED   GET   /api/dashboard   <- lib/api.ts:168
+WIRED   GET   /api/health   <- lib/api.ts:293
+UNWIRED GET   /api/health/full
+WIRED   GET   /api/integrations/gmail/auth-url   <- lib/api.ts:286
+UNWIRED GET   /api/integrations/gmail/callback
+WIRED   POST  /api/integrations/gmail/disconnect   <- lib/api.ts:287
+WIRED   GET   /api/integrations/gmail/status   <- lib/api.ts:284
+WIRED   GET   /api/integrations/telegram/status   <- lib/api.ts:288
+WIRED   POST  /api/integrations/telegram/test   <- lib/api.ts:289
+WIRED   GET   /api/meetings   <- lib/api.ts:227
+WIRED   GET   /api/meetings/{meeting_id}   <- lib/api.ts:228
+WIRED   POST  /api/meetings/{meeting_id}/cancel   <- lib/api.ts:232
+WIRED   POST  /api/meetings/{meeting_id}/complete   <- lib/api.ts:233
+WIRED   POST  /api/meetings/{meeting_id}/mark-scheduled   <- lib/api.ts:235
+WIRED   POST  /api/meetings/{meeting_id}/send-invitation   <- lib/api.ts:230
+WIRED   GET   /api/notifications   <- lib/api.ts:258
+WIRED   POST  /api/notifications/clear   <- lib/api.ts:264
+WIRED   POST  /api/notifications/read   <- lib/api.ts:262
+WIRED   GET   /api/notifications/unread-count   <- lib/api.ts:259
+WIRED   GET   /api/queue   <- lib/api.ts:242
+WIRED   GET   /api/queue/global-pause   <- lib/api.ts:245
+WIRED   POST  /api/queue/global-pause   <- lib/api.ts:245
+UNWIRED POST  /api/queue/purge
+WIRED   GET   /api/queue/stats   <- lib/api.ts:242
+WIRED   POST  /api/queue/{job_id}/cancel   <- lib/api.ts:249
+WIRED   POST  /api/queue/{job_id}/pause   <- lib/api.ts:247
+WIRED   POST  /api/queue/{job_id}/reschedule   <- lib/api.ts:252
+WIRED   POST  /api/queue/{job_id}/resume   <- lib/api.ts:248
+WIRED   POST  /api/queue/{job_id}/retry   <- lib/api.ts:250
+WIRED   GET   /api/settings   <- app/settings/SettingsClient.tsx:19
+WIRED   GET   /api/settings/schema   <- app/settings/SettingsClient.tsx:19
+WIRED   PUT   /api/settings/{section}   <- app/settings/SettingsClient.tsx:19
+WIRED   POST  /api/setup/complete   <- lib/api.ts:164
+WIRED   GET   /api/setup/status   <- app/page.tsx:6
+WIRED   GET   /api/vendors   <- lib/api.ts:173
+WIRED   POST  /api/vendors   <- lib/api.ts:173
+WIRED   POST  /api/vendors/discover   <- lib/api.ts:183
+UNWIRED POST  /api/vendors/import/csv
+WIRED   POST  /api/vendors/import/paste   <- lib/api.ts:185
+WIRED   GET   /api/vendors/meta   <- lib/api.ts:174
+WIRED   GET   /api/vendors/{vendor_id}   <- lib/api.ts:174
+WIRED   PATCH /api/vendors/{vendor_id}   <- lib/api.ts:174
+WIRED   DELETE/api/vendors/{vendor_id}   <- lib/api.ts:174
+WIRED   POST  /api/vendors/{vendor_id}/research   <- lib/api.ts:182
+WIRED   POST  /api/vendors/{vendor_id}/status   <- lib/api.ts:181
