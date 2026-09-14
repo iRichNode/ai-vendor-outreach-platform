@@ -16,8 +16,10 @@ _BASE = "https://api.telegram.org"
 class TelegramSender:
     """Sends notifications via the Telegram Bot API."""
 
-    def __init__(self, token: str | None = None, chat_id: str | None = None) -> None:
-        settings = get_settings()
+    def __init__(
+        self, token: str | None = None, chat_id: str | None = None, settings: Any | None = None
+    ) -> None:
+        settings = settings or get_settings()
         self.token = token or settings.TELEGRAM_BOT_TOKEN
         self.chat_id = str(chat_id or settings.TELEGRAM_CHAT_ID or "")
 

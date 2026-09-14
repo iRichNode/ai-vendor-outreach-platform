@@ -28,6 +28,7 @@ async def notify(
     email: str | None = None,
     link: str | None = None,
     send_telegram: bool = True,
+    settings: Any | None = None,
 ) -> Notification:
     """Persist an in-app notification and optionally push to Telegram."""
     notif = Notification(
@@ -45,7 +46,7 @@ async def notify(
     session.add(notif)
     await session.flush()
     if send_telegram:
-        sender = TelegramSender()
+        sender = TelegramSender(settings=settings)
         if sender.enabled:
             text = telegram_service.format_notification(title, body, vendor=vendor_name, company=company, email=email)
             ok, detail = await sender.send(text)
@@ -66,6 +67,7 @@ async def notify_human_handoff(
     email: str | None,
     reason: str,
     conversation_id: str | None = None,
+    settings: Any | None = None,
 ) -> Notification:
     """Alert the operator that a campaign needs a human link/decision."""
     return await notify(
@@ -80,6 +82,7 @@ async def notify_human_handoff(
         vendor_name=vendor_name,
         company=company,
         email=email,
+        settings=settings,
     )
 
 

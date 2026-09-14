@@ -16,8 +16,8 @@ import { api, errorMessage, type AnyRecord } from "@/lib/api";
 import { humanize } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 
-/** { field: { value, type } } as returned by GET /api/settings/schema */
-type FieldSpec = { value: unknown; type?: string };
+/** { field: { value, type, secret } } as returned by GET /api/settings/schema */
+type FieldSpec = { value: unknown; type?: string; secret?: boolean };
 type SchemaMap = Record<string, Record<string, FieldSpec>>;
 type Values = Record<string, unknown>;
 
@@ -26,6 +26,7 @@ const SECTION_ORDER = [
   "general",
   "ai",
   "gmail",
+  "smtp",
   "telegram",
   "discovery",
   "research",
@@ -36,6 +37,9 @@ const SECTION_ORDER = [
 ];
 
 const LONG_TEXT = /(prompt|body|template|signature|note|message|instructions|context|system)/i;
+
+/** Same sentinel the backend uses: GET returns this for a configured secret and PUT treats it as "leave unchanged". */
+const SECRET_MASK = "********";
 
 function kindOf(spec: FieldSpec | undefined, value: unknown): "bool" | "number" | "json" | "longtext" | "text" {
   const declared = String(spec?.type ?? "").toLowerCase();
@@ -340,6 +344,7 @@ export function SettingsClient() {
                             ? "JSON value — parsed before saving."
                             : undefined;
                       const fieldKey = `${section}.${key}`;
+                      const secret = Boolean((spec as AnyRecord)?.secret);
 
                       if (kind === "bool") {
                         return (
@@ -377,6 +382,23 @@ export function SettingsClient() {
                         );
                       }
 
+                      if (secret) {
+                        const configured = value === SECRET_MASK;
+                        return (
+                          <Field key={fieldKey} label={label} hint={hint}>
+                            <input
+                              className="input"
+                              type="password"
+                              autoComplete="new-password"
+                              spellCheck={false}
+                              placeholder={configured ? "Configured — type to replace" : "Not configured"}
+                              value={configured ? "" : toInputValue(value)}
+                              onChange={(event) => setField(key, event.target.value)}
+                            />
+                          </Field>
+                        );
+                      }
+
                       if (kind === "json" || LONG_TEXT.test(key) || toInputValue(value).length > 90) {
                         return (
                           <Field key={fieldKey} label={label} hint={hint}>
@@ -407,6 +429,7 @@ export function SettingsClient() {
                   Saving sends <span className="mono">PUT /api/settings/{section || "…"}</span> with{" "}
                   <span className="mono">{`{"section": "...", "values": {...}}`}</span>. Keys must be
                   discoverable by the backend schema, so every field is submitted with the form.
+                  Secret fields left blank (or showing the mask) keep their configured value.
                 </InfoNote>
               </>
             ) : null}

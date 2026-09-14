@@ -97,8 +97,8 @@ ALLOWED_QUALIFICATIONS = {"UNQUALIFIED", "QUALIFYING", "QUALIFIED", "NOT_QUALIFI
 class LLMClient:
     """OpenAI-compatible chat completions client (OpenRouter by default)."""
 
-    def __init__(self) -> None:
-        self.settings = get_settings()
+    def __init__(self, settings: Any | None = None) -> None:
+        self.settings = settings or get_settings()
         self.api_key = self.settings.OPENROUTER_API_KEY
         self.base_url = self.settings.OPENROUTER_BASE_URL or "https://openrouter.ai/api/v1"
         self.model = self.settings.LLM_MODEL
@@ -191,8 +191,8 @@ class RuleBasedLLM:
     that it is demo-grade.
     """
 
-    def __init__(self) -> None:
-        self.settings = get_settings()
+    def __init__(self, settings: Any | None = None) -> None:
+        self.settings = settings or get_settings()
 
     @property
     def enabled(self) -> bool:
@@ -263,9 +263,14 @@ def _extract_body(blob: str) -> str:
     return match.group(1).strip() if match else blob
 
 
-def build_llm(system_prompt: str | None = None) -> LLMClient | RuleBasedLLM:
-    """Pick the real client when a key exists, otherwise the demo rule engine."""
-    settings = get_settings()
+def build_llm(
+    system_prompt: str | None = None, settings: Any | None = None
+) -> LLMClient | RuleBasedLLM:
+    """Pick the real client when a key exists, otherwise the demo rule engine.
+
+    ``settings`` may be a runtime copy with the panel-stored API key merged in.
+    """
+    settings = settings or get_settings()
     if settings.OPENROUTER_API_KEY:
-        return LLMClient()
-    return RuleBasedLLM()
+        return LLMClient(settings=settings)
+    return RuleBasedLLM(settings=settings)

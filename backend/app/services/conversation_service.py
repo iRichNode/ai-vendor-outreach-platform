@@ -164,10 +164,11 @@ async def handle_inbound(
 
 
 async def decide_and_apply(
-    db: AsyncSession, *, conversation: Conversation, vendor: Vendor, inbound: Message
+    db: AsyncSession, *, conversation: Conversation, vendor: Vendor, inbound: Message,
+    settings: Any | None = None,
 ) -> dict[str, Any]:
     """Ask the AI for a decision, then apply it with backend guardrails."""
-    llm = ai_service.build_llm()
+    llm = ai_service.build_llm(settings=settings)
     prompt_user = f"Subject: {inbound.subject or ''}\nBody: {inbound.body[:6000]}"
     decision = await llm.decide(_SYSTEM_PROMPT, prompt_user)
 
@@ -215,6 +216,7 @@ async def decide_and_apply(
             company=vendor.company,
             email=vendor.email,
             reason=conversation.handoff_reason,
+            settings=settings,
         )
     else:
         conversation.status = ConversationStatus.ACTIVE.value
@@ -224,7 +226,7 @@ async def decide_and_apply(
             conversation_id=conversation.id,
             vendor_id=vendor.id,
             idempotency_key=f"out-ai-{inbound.id}",
-            sender=recipient_addr(vendor),
+            sender=recipient_addr(vendor, settings=settings),
             recipient=inbound.sender,
             subject=subject_reply(inbound.subject or conversation.subject or ""),
             body=decision.response,
@@ -274,11 +276,11 @@ def subject_reply(subject: str) -> str:
     return f"Re: {subject}"
 
 
-def recipient_addr(vendor: Vendor) -> str:
+def recipient_addr(vendor: Vendor, settings: Any | None = None) -> str:
     from app.config import get_settings
 
-    settings = get_settings()
-    return settings.GMAIL_SENDER_EMAIL or "outreach@example.com"
+    settings = settings or get_settings()
+    return settings.GMAIL_SENDER_EMAIL or settings.SMTP_FROM_EMAIL or settings.SMTP_USERNAME or "outreach@example.com"
 
 
 def uuid4_hex() -> str:

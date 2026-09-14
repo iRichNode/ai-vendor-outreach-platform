@@ -7,6 +7,11 @@
 # Services: reverse-proxy (nginx) -> frontend (Next.js), api (FastAPI)
 # plus worker (outbound dispatcher), scheduler (queue maintenance),
 # postgres (state) and redis (rate limiting / integrations).
+#
+# TLS: scripts/install.sh issues a Let's Encrypt certificate (webroot) and
+# renders infra/nginx/conf.d/ssl.conf from ssl.conf.tpl. The certbot
+# directories infra/certs/etc/letsencrypt and infra/certs/www are mounted
+# into the proxy (see install.sh / docs/deployment.md).
 # ------------------------------------------------------------------
 name: ai-vendor-outreach
 
@@ -75,6 +80,14 @@ services:
       GMAIL_SENDER_NAME: ${GMAIL_SENDER_NAME:-}
       GMAIL_TOKEN_FILE: /srv/app/data/gmail_token.json
       GMAIL_PLAIN_TEXT: ${GMAIL_PLAIN_TEXT:-false}
+      # --- SMTP (Microsoft 365/Outlook or any provider; panel can override) ---
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
       # --- Discovery / research ---
       DISCOVERY_PROVIDER: ${DISCOVERY_PROVIDER:-demo}
       DISCOVERY_API_URL: ${DISCOVERY_API_URL:-}
@@ -171,13 +184,15 @@ services:
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-80}:80"
-      # Uncomment for TLS termination on the proxy (see docs/deployment.md):
-      # - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
-      # TLS certificates (mounted when you add the 443 listener):
-      # - ./infra/certs:/etc/nginx/certs:ro
+      # Let's Encrypt state (created/populated by scripts/install.sh):
+      #   .infra/certs/etc/letsencrypt -> /etc/letsencrypt  (certificates)
+      #   .infra/certs/www             -> /var/www/certbot (ACME webroot)
+      - ./infra/certs/etc/letsencrypt:/etc/letsencrypt:ro
+      - ./infra/certs/www:/var/www/certbot:ro
     depends_on:
       frontend:
         condition: service_healthy

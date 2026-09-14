@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     GMAIL_TOKEN_FILE: str = ""   # path to token.json (persistent OAuth)
     GMAIL_PLAIN_TEXT: bool = False
 
+    # --- SMTP (Microsoft 365 / Outlook / any SMTP provider) ---
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = ""
+    SMTP_USE_TLS: bool = True  # STARTTLS on port 587
+
     # --- Vendor discovery ---
     DISCOVERY_PROVIDER: str = "demo"
     DISCOVERY_API_URL: str = ""

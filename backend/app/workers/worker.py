@@ -24,12 +24,14 @@ from app.models.message import Message
 from app.models.vendor import Vendor
 from app.services import campaign_service, conversation_service, meeting_service, queue_service
 from app.services.gmail_client import get_transport
+from app.services.runtime_settings import effective_settings
 
 logger = logging.getLogger("app.worker")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
 async def _handle_initial_email(db: AsyncSession, job) -> None:
+    settings = await effective_settings(db)
     vendor = await db.get(Vendor, job.vendor_id)
     if not vendor:
         raise RuntimeError(f"Vendor {job.vendor_id} not found")
@@ -41,7 +43,7 @@ async def _handle_initial_email(db: AsyncSession, job) -> None:
     if not vendor.email:
         raise RuntimeError("Vendor has no email address")
 
-    transport = get_transport()
+    transport = get_transport(settings=settings)
     result = await transport.send_email(to=vendor.email, subject=subject, body=body)
     if not result["ok"]:
         raise RuntimeError(result.get("detail") or "Gmail send failed")
@@ -53,7 +55,7 @@ async def _handle_initial_email(db: AsyncSession, job) -> None:
         conversation_id=convo.id,
         vendor_id=vendor.id,
         idempotency_key=f"out-{job.id}",
-        sender=conversation_service.recipient_addr(vendor),
+        sender=conversation_service.recipient_addr(vendor, settings=settings),
         recipient=vendor.email,
         subject=subject,
         body=body,
@@ -88,6 +90,7 @@ async def _handle_initial_email(db: AsyncSession, job) -> None:
 
 
 async def _handle_follow_up(db: AsyncSession, job) -> None:
+    settings = await effective_settings(db)
     vendor = await db.get(Vendor, job.vendor_id)
     if not vendor:
         raise RuntimeError(f"Vendor {job.vendor_id} not found")
@@ -107,7 +110,7 @@ async def _handle_follow_up(db: AsyncSession, job) -> None:
             db, vendor_id=vendor.id, campaign_id=job.campaign_id, subject=subject
         )
 
-    transport = get_transport()
+    transport = get_transport(settings=settings)
     result = await transport.send_email(
         to=vendor.email, subject=conversation_service.subject_reply(subject), body=body,
         thread_id=convo.gmail_thread_id,
@@ -119,7 +122,7 @@ async def _handle_follow_up(db: AsyncSession, job) -> None:
         conversation_id=convo.id,
         vendor_id=vendor.id,
         idempotency_key=f"out-{job.id}",
-        sender=conversation_service.recipient_addr(vendor),
+        sender=conversation_service.recipient_addr(vendor, settings=settings),
         recipient=vendor.email,
         subject=conversation_service.subject_reply(subject),
         body=body,
@@ -149,6 +152,7 @@ async def _handle_follow_up(db: AsyncSession, job) -> None:
 
 
 async def _handle_ai_reply(db: AsyncSession, job) -> None:
+    settings = await effective_settings(db)
     payload = job.payload or {}
     conversation = await db.get(Conversation, payload.get("conversation_id", job.conversation_id))
     vendor = await db.get(Vendor, job.vendor_id)
@@ -176,7 +180,7 @@ async def _handle_ai_reply(db: AsyncSession, job) -> None:
     if inbound is None:
         raise RuntimeError("No inbound message to reply to")
     result = await conversation_service.decide_and_apply(db, conversation=conversation, vendor=vendor,
-                                                         inbound=inbound)
+                                                         inbound=inbound, settings=settings)
     if result.get("reply_message_id") and not vendor.opted_out:
         if job.campaign_id:
             campaign = await db.get(campaign_service.Campaign, job.campaign_id)
@@ -189,6 +193,7 @@ async def _handle_ai_reply(db: AsyncSession, job) -> None:
 
 
 async def _handle_meeting_invitation(db: AsyncSession, job) -> None:
+    settings = await effective_settings(db)
     payload = job.payload or {}
     from app.models.meeting import Meeting as MeetingModel
 
@@ -198,13 +203,14 @@ async def _handle_meeting_invitation(db: AsyncSession, job) -> None:
     vendor = await db.get(Vendor, meeting.vendor_id)
     if not vendor:
         raise RuntimeError("Vendor not found for meeting invitation")
-    result = await meeting_service.send_invitation(db, vendor=vendor, meeting=meeting)
+    result = await meeting_service.send_invitation(db, vendor=vendor, meeting=meeting, settings=settings)
     if not result["ok"]:
         raise RuntimeError(result["detail"])
     await db.flush()
 
 
 async def _handle_meeting_followup(db: AsyncSession, job) -> None:
+    settings = await effective_settings(db)
     payload = job.payload or {}
     from app.models.meeting import Meeting as MeetingModel
 
@@ -214,7 +220,7 @@ async def _handle_meeting_followup(db: AsyncSession, job) -> None:
         raise RuntimeError("Meeting or vendor not found for meeting follow-up")
     if not vendor.email:
         raise RuntimeError("Vendor has no email address")
-    transport = get_transport()
+    transport = get_transport(settings=settings)
     subject = "Did our meeting happen?"
     body = (
         f"Hi {vendor.contact_name or vendor.company},\n\n"
@@ -232,7 +238,7 @@ async def _handle_meeting_followup(db: AsyncSession, job) -> None:
             conversation_id=convo.id,
             vendor_id=vendor.id,
             idempotency_key=f"out-{job.id}",
-            sender=conversation_service.recipient_addr(vendor),
+            sender=conversation_service.recipient_addr(vendor, settings=settings),
             recipient=vendor.email,
             subject=subject,
             body=body,

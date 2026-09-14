@@ -50,11 +50,117 @@ Frontend (Next.js)  ──►  Reverse proxy (nginx)  ──►  API (FastAPI)  
 
 ## Requirements
 
-- Docker 24+ with the Compose plugin, or a machine with Python 3.13+/Node 24+
-- A VPS (1 GB RAM is enough for small volumes; 2 GB recommended)
-- Optional external accounts: Gmail API, OpenRouter (AI), Telegram bot
+**VPS (recommended target for the one-shot installer)**
 
-## Quick start (Docker, recommended)
+| Spec | Minimum | Recommended |
+|---|---|---|
+| OS | Ubuntu 22.04 LTS | Ubuntu 24.04 LTS |
+| CPU | 1 vCPU | 2 vCPU |
+| RAM | 2 GB | 4 GB |
+| Disk | 20 GB SSD | 30+ GB SSD |
+| Network | Ports 80 and 443 open (firewall / security group) | Ports 80 and 443 open |
+| Domain | A record pointing to the server IP | A record pointing to the server IP |
+
+- Docker 24+ with the Compose plugin (installed in Step 2 of the guide below)
+- Everything else - AI key, Gmail, Microsoft 365/SMTP, Telegram - can be
+  configured **in the web panel after installation**, no SSH/rebuild needed.
+
+## VPS deployment & HTTPS (one-shot installer)  ⭐
+
+Run one command on a fresh VPS and the platform is live on
+`https://<your-domain>` - the Let's Encrypt certificate is issued **during
+installation** and the app opens from any computer:
+
+```bash
+sudo bash scripts/install.sh
+```
+
+### Step-by-step installation guide
+
+**Step 0 - VPS**  \
+Order a VPS matching the table above (Ubuntu 24.04 LTS, 2 vCPU / 4 GB RAM /
+30 GB is a comfortable baseline). Make sure ports **80** and **443** are open
+in the firewall / security group; the installer needs them for the challenge.
+
+**Step 1 - connect over SSH**
+
+```bash
+ssh root@<server-ip>
+```
+
+**Step 2 - install Docker Engine + compose plugin**
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+**Step 3 - point your domain at the server**  \
+In your DNS provider create an **A record** for your domain (or subdomain) with
+"@ / blank name" -> your server's public IPv4. Verify it resolves before
+installing:
+
+```bash
+dig +short your-domain.com   # -> your server's public IP
+```
+
+**Step 4 - clone the repository**
+
+```bash
+git clone https://github.com/iRichNode/ai-vendor-outreach-platform.git
+cd ai-vendor-outreach-platform
+```
+
+**Step 5 - run the installer**
+
+```bash
+sudo bash scripts/install.sh
+```
+
+It asks two questions and then does everything else unattended:
+
+1. **Domain name** - e.g. `outreach.example.com` (A record already pointing here)
+2. **Let's Encrypt email** - for renewal notices
+3. *(optional)* create the initial **admin account** now - or skip it and use
+   the in-app setup wizard on first login
+
+**Step 6 - open the URL from any computer**
+
+The installer verifies everything and prints:
+
+```
+Your platform is live at:  https://your-domain.com
+```
+
+Log in with the admin account you created (or complete the wizard), then
+configure integrations **in the web panel - no SSH required**:
+
+| What | Where in the panel | What you need |
+|---|---|---|
+| AI (OpenRouter) | Settings → AI | an OpenRouter API key (openrouter.ai) |
+| Gmail | Settings → Email | Google Cloud OAuth client (see below) |
+| Microsoft 365 / Outlook / SMTP | Settings → Email | SMTP host, login, sender (see below) |
+| Telegram alerts | Settings → Telegram | bot token from @BotFather + your chat id |
+
+### What the installer does (idempotent - safe to re-run)
+
+1. Validates prerequisites (root, git, curl, openssl, Docker + compose, certbot)
+2. Creates `.env` from `.env.example` if missing; generates random `SECRET_KEY`
+   and `POSTGRES_PASSWORD`; sets `BASE_URL`, `CORS_ORIGINS` and
+   `GOOGLE_REDIRECT_URI` to `https://<your-domain>`
+3. Starts the stack (HTTP) - port 80 also serves the ACME challenge
+4. Issues the **Let's Encrypt certificate during installation** with
+   `certbot certonly --webroot` against the running nginx
+5. Renders the TLS `ssl.conf`, reloads nginx, verifies `https://<domain>/ready`
+6. Installs **auto-renewal**: systemd timer `avop-renew` (daily 03:17) or a
+   cron fallback; manual: `sudo bash scripts/renew-cert.sh`
+
+Re-run the installer anytime to recover from a failed issuance (e.g. DNS was
+not propagated yet), change the domain, or complete an interrupted setup.
+
+See [docs/deployment.md](docs/deployment.md) for details, and
+[docs/backup.md](docs/backup.md) for backups.
+
+## Quick start (Docker, local / without a domain)
 
 ```bash
 git clone https://github.com/iRichNode/ai-vendor-outreach-platform.git
@@ -64,16 +170,16 @@ nano .env                # set SECRET_KEY (openssl rand -hex 32) and integration
 docker compose up -d --build
 ```
 
-Then open http://localhost (or your VPS IP). On first boot:
+Then open http://localhost. On first boot:
 
 1. `docker compose ps` — all 7 services healthy
 2. Visit `/` — the setup wizard creates the first admin
    (or set `INITIAL_ADMIN_*` in `.env` before first boot)
 3. `curl http://localhost/ready` returns `{"status":"ok",...}`
 
-For scripted installs on Ubuntu: `sudo bash scripts/install.sh`
-See [docs/deployment.md](docs/deployment.md) for HTTPS (Let's Encrypt) and
-updates, and [docs/docker.md](docs/docker.md) for the full service map.
+For HTTPS behind the stack without the installer (custom proxy/CDN) or for a
+manual certbot setup, see [docs/deployment.md](docs/deployment.md); and
+[docs/docker.md](docs/docker.md) for the full service map.
 
 ## Local development (no Docker)
 
@@ -110,11 +216,12 @@ Every setting is documented in [.env.example](.env.example) and loaded by
 | Initial admin | `INITIAL_ADMIN_USERNAME/PASSWORD/EMAIL` |
 | AI | `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_TEMPERATURE`, `AI_REPLY_*` |
 | Gmail | `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI`, `GMAIL_TRANSPORT`, `GMAIL_SENDER_*` |
+| SMTP (Microsoft 365 etc.) | `SMTP_HOST/PORT/USERNAME/PASSWORD/FROM_EMAIL/FROM_NAME/USE_TLS` |
 | Discovery | `DISCOVERY_PROVIDER/API_URL/API_KEY`, `RESEARCH_*` |
 | Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
 | Pacing | `SEND_*`, `DAILY_MAX_EMAILS`, `SENDING_*`, `CAMPAIGN_TIMEZONE` |
 | Worker/scheduler | `DISPATCH_INTERVAL_SECONDS`, `SCHEDULER_*`, `JOB_*`, `GUNICORN_WORKERS` |
-| Proxy | `HTTP_PORT`, `NEXT_PUBLIC_API_URL` |
+| Proxy / TLS | `HTTP_PORT`, `HTTPS_PORT`, `LETSENCRYPT_EMAIL`, `NEXT_PUBLIC_API_URL` |
 
 ## Gmail setup
 
@@ -129,7 +236,23 @@ The platform sends through the **Gmail API** (preferred) or SMTP.
 4. `GMAIL_TRANSPORT=auto` uses the API when credentials exist and falls back to
    `fake` (dry-run) otherwise — nothing sends mail until you connect.
 
+Most of this is optional at install time: after a VPS install the redirect URI
+is already set for you, and the credentials can be entered in the web panel
+(**Settings → Email**) instead of `.env`.
+
 See [docs/deployment.md](docs/deployment.md) § "Gmail & OAuth" for details.
+
+## SMTP setup (Microsoft 365 / Outlook / any provider)
+
+Sending can also go through standard SMTP with STARTTLS (the Gmail transport
+falls back to SMTP when configured):
+
+1. Use the web panel (**Settings → Email**) after install, or set in `.env`:
+   `SMTP_HOST`, `SMTP_PORT=587`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
+   `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_TLS=true`
+2. Microsoft 365 / Outlook.com: enable SMTP AUTH for the mailbox, use the
+   mailbox address as login and the app password; port 587 + STARTTLS
+3. Test with **Settings → Email → Send test** before launching a campaign
 
 ## OpenRouter (AI) setup
 
@@ -151,14 +274,20 @@ Without a key the AI services fail safe: conversations stay in
 Operator notifications fire for: interested/qualified vendors, meeting
 requests, AI needing help, and errors.
 
-## VPS deployment & HTTPS
 
-See [docs/deployment.md](docs/deployment.md):
+## Updating
 
-- `scripts/install.sh` — validates Docker, configures `.env`, builds and
-  starts the stack, waits for health, reports status (non-destructive)
-- HTTPS: `docker compose` + certbot with an nginx 443 listener, or put the
-  stack behind Caddy/Traefik/Cloudflare — the proxy respects `X-Forwarded-Proto`
+```bash
+cd ai-vendor-outreach-platform
+git pull
+docker compose build --pull
+docker compose up -d
+# TLS certificate renewal stays automatic; manual: sudo bash scripts/renew-cert.sh
+```
+
+Alembic migrations run automatically on API container start (idempotent).
+Set `SKIP_AUTO_MIGRATE=1` and run `docker compose exec api alembic upgrade head`
+for controlled multi-host deploys.
 
 ## Backups
 
@@ -169,18 +298,6 @@ scripts/backup.sh                      # pg_dump to ./backups/ + app-data tar
 scripts/restore.sh backups/ai_vendor_outreach_<timestamp>.dump.gz
 ```
 
-## Updating
-
-```bash
-git pull
-docker compose build --pull
-docker compose up -d
-```
-
-Alembic migrations run automatically on API container start (idempotent).
-Set `SKIP_AUTO_MIGRATE=1` and run `docker compose exec api alembic upgrade head`
-for controlled multi-host deploys.
-
 ## Testing
 
 ```bash
@@ -188,7 +305,7 @@ cd backend
 pip install -r requirements.txt
 DATABASE_URL=postgresql+asyncpg://outreach:outreach@127.0.0.1:5432/outreach \
 REDIS_URL=redis://127.0.0.1:6379/0 \
-SECRET_KEY=test-key pytest -q        # 26 tests, mocked Gmail/Telegram/AI
+SECRET_KEY=test-key pytest -q        # 50 tests, mocked Gmail/Telegram/AI
 
 cd ../frontend
 npm ci && npm run build              # type-checked production build
@@ -203,8 +320,8 @@ backend/          FastAPI app (api/, models/, services/, workers/, alembic/)
 frontend/         Next.js dashboard (app/, lib/, components/)
 worker/           worker service notes (runs backend image)
 scheduler/        scheduler service notes (runs backend image)
-infra/nginx/      reverse proxy configuration
-scripts/          install.sh, backup.sh, restore.sh, status.sh
+infra/nginx/      reverse proxy configuration (TLS templates; ssl.conf is generated)
+scripts/          install.sh, renew-cert.sh, backup.sh, restore.sh, status.sh
 docs/             architecture, API, deployment, docker, backup, testing, security
 docker-compose.yml
 ```

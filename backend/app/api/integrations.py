@@ -17,7 +17,6 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.core.auth import CurrentUser, JsonRequest
 from app.core.secrets import decrypt_secret, encrypt_secret
 from app.database import get_db
@@ -26,6 +25,7 @@ from app.models.oauth_credential import OAuthCredential
 from app.schemas.misc import TelegramTestResult
 from app.services import audit
 from app.services.gmail_client import SCOPES, build_oauth_url, get_transport
+from app.services.runtime_settings import effective_settings
 from app.services.serializers import serialize_email_account
 from app.services.telegram import TelegramSender
 
@@ -37,18 +37,24 @@ _USERINFO_ENDPOINT = "https://oauth2.googleapis.com/tokeninfo"
 
 @router.get("/gmail/status")
 async def gmail_status(db: Annotated[AsyncSession, Depends(get_db)], _user: CurrentUser) -> dict:
-    settings = get_settings()
+    settings = await effective_settings(db)
     accounts = (await db.execute(select(EmailAccount))).scalars().all()
     creds = (await db.execute(select(OAuthCredential).where(OAuthCredential.provider == "gmail"))).scalars().all()
-    transport = get_transport()
     connected = bool(
         accounts or creds or settings.GMAIL_TOKEN_JSON or settings.GMAIL_TOKEN_FILE
         or settings.GOOGLE_CLIENT_ID
     )
+    name = settings.GMAIL_TRANSPORT or "auto"
+    if name == "fake":
+        transport_name = "fake"
+    elif name == "smtp" or (name == "auto" and settings.SMTP_HOST):
+        transport_name = "smtp"
+    else:
+        transport_name = "real" if connected else "fake"
     return {
-        "configured": connected,
+        "configured": connected or bool(settings.SMTP_HOST),
         "demo_mode": settings.DEMO_MODE,
-        "transport": "real" if connected and not settings.GMAIL_TRANSPORT == "fake" else "fake",
+        "transport": transport_name,
         "accounts": [serialize_email_account(a) for a in accounts],
         "oauth_scopes": SCOPES,
     }
@@ -60,7 +66,7 @@ async def gmail_auth_url(
     _user: CurrentUser,
     redirect_uri: str = Query(default="", max_length=1024),
 ) -> dict:
-    settings = get_settings()
+    settings = await effective_settings(db)
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Google OAuth is not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)")
@@ -70,7 +76,7 @@ async def gmail_auth_url(
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid redirect_uri")
     uri = redirect_uri or settings.GOOGLE_REDIRECT_URI or f"{settings.BASE_URL}/api/integrations/gmail/callback"
-    url = build_oauth_url(uri)
+    url = build_oauth_url(uri, settings=settings)
     return {"auth_url": url, "redirect_uri": uri}
 
 
@@ -88,7 +94,7 @@ async def gmail_callback(
         return _page("Gmail connection failed", f"Google returned: {error}")
     if not code:
         return _page("Gmail connection failed", "Missing authorization code.")
-    settings = get_settings()
+    settings = await effective_settings(db)
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         return _page("Gmail connection failed", "Google OAuth is not configured on the server.")
     uri = redirect_uri or settings.GOOGLE_REDIRECT_URI or f"{settings.BASE_URL}/api/integrations/gmail/callback"
@@ -182,8 +188,10 @@ async def gmail_disconnect(
 
 
 @router.get("/telegram/status")
-async def telegram_status(_user: CurrentUser) -> dict:
-    sender = TelegramSender()
+async def telegram_status(
+    db: Annotated[AsyncSession, Depends(get_db)], _user: CurrentUser
+) -> dict:
+    sender = TelegramSender(settings=await effective_settings(db))
     return {
         "configured": sender.enabled,
         "token_configured": bool(sender.token),
@@ -193,9 +201,10 @@ async def telegram_status(_user: CurrentUser) -> dict:
 
 @router.post("/telegram/test", response_model=TelegramTestResult)
 async def telegram_test(
+    db: Annotated[AsyncSession, Depends(get_db)],
     _user: CurrentUser,
     _json: JsonRequest,
 ) -> TelegramTestResult:
-    sender = TelegramSender()
+    sender = TelegramSender(settings=await effective_settings(db))
     ok, detail = await sender.test()
     return TelegramTestResult(ok=ok, detail=detail)

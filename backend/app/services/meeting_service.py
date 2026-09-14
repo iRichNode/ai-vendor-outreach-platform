@@ -119,9 +119,10 @@ async def send_invitation(
     meeting: Meeting,
     conversation: Conversation | None = None,
     transport: gmail_client.GmailTransport | None = None,
+    settings: Any | None = None,
 ) -> dict:
-    """Send the meeting invitation to the vendor via Gmail (MEETING_INVITATION job)."""
-    settings = get_settings()
+    """Send the meeting invitation to the vendor via Gmail/SMTP (MEETING_INVITATION job)."""
+    settings = settings or get_settings()
     if not meeting.meeting_url:
         return {"ok": False, "detail": "Meeting has no URL yet.", "message_id": None}
     sender = settings.GMAIL_SENDER_EMAIL or "outreach@example.com"
@@ -133,7 +134,7 @@ async def send_invitation(
         f"{('Notes: ' + meeting.notes) if meeting.notes else ''}\n\n"
         f"Looking forward to it!\n\nBest regards,\n{settings.GMAIL_SENDER_NAME or 'The Outreach Team'}"
     )
-    t = transport or gmail_client.get_transport()
+    t = transport or gmail_client.get_transport(settings=settings)
     result = await t.send_email(to=vendor.email or "", subject=subject, body=body)
     if result["ok"]:
         meeting.status = "INVITATION_SENT"
