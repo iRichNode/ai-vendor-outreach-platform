@@ -11,6 +11,18 @@ import { redirect } from "next/navigation";
 
 import { API_BASE } from "./api";
 
+/**
+ * Absolute base for server-side fetches: Node's fetch cannot use relative
+ * URLs, so SSR needs a real origin. API_INTERNAL_URL points at the backend
+ * over the compose network (http://api:8000); fall back to the public base
+ * when provided, and to the local dev backend as a last resort.
+ */
+const SSR_API_BASE =
+  process.env.API_INTERNAL_URL ||
+  (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "") ||
+  API_BASE ||
+  "http://127.0.0.1:8000";
+
 export interface AuthUser {
   id?: string;
   username?: string;
@@ -32,7 +44,7 @@ export interface SetupStatus {
 export async function serverGet<T>(path: string): Promise<T | null> {
   try {
     const cookieHeader = (await cookies()).toString();
-    const response = await fetch(`${API_BASE}${path}`, {
+    const response = await fetch(`${SSR_API_BASE}${path}`, {
       headers: { cookie: cookieHeader, accept: "application/json" },
       cache: "no-store",
     });

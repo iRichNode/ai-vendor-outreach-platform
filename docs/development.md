@@ -98,8 +98,10 @@ Tests use their own database (see `tests/conftest.py`) and drop/recreate the
 
 ## 6. Frontend conventions
 
-- `NEXT_PUBLIC_API_URL` is read at build time: `/api` (relative, compose
-  default) or an absolute URL for standalone dev.
+- `NEXT_PUBLIC_API_URL` is read at build time: empty (default) means
+  same-origin — every call path already starts with `/api` and the reverse
+  proxy forwards it — or an absolute URL for standalone dev
+  (`NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npm run dev`).
 - The Next.js app is served by `next start` in production (works without
   `output: standalone`); use `npm run start -- -p PORT` to change ports
   (npm requires `--` to avoid eating the flag).

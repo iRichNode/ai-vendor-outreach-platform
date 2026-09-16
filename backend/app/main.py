@@ -21,9 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import api_router
 from app.api.health import health as _health
 from app.api.health import health_full as _health_full
-from app.database import get_db
+from app.api.setup import setup_from_env_if_needed
 from app.config import get_settings
-from app.database import init_db
+from app.database import get_db, get_session_factory, init_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app.main")
@@ -35,6 +35,18 @@ async def lifespan(_app: FastAPI):
     if settings.ENVIRONMENT in ("development", "test") or settings.DEMO_MODE:
         logger.warning("Creating tables via create_all (dev/demo mode). Production must use Alembic.")
         await init_db()
+    # First-boot bootstrap: if INITIAL_ADMIN_USERNAME/PASSWORD are configured and
+    # no user exists yet, create the initial superuser (idempotent; no-op once
+    # any user exists or the env vars are unset). Failures are non-fatal so a
+    # bootstrap problem can never prevent the API from serving.
+    try:
+        async with get_session_factory() as db:
+            admin = await setup_from_env_if_needed(db)
+    except Exception:
+        logger.exception("initial-admin bootstrap failed (non-fatal); continuing startup")
+    else:
+        if admin is not None:
+            logger.info("initial admin user %r created from INITIAL_ADMIN_* env", admin.username)
     logger.info("startup complete environment=%s demo_mode=%s", settings.ENVIRONMENT, settings.DEMO_MODE)
     yield
 

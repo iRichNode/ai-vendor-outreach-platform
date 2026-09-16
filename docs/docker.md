@@ -56,8 +56,12 @@ Key wiring:
 - `DATABASE_URL` is composed inside `docker-compose.yml` from the
   `POSTGRES_USER/PASSWORD/DB` variables, pointing at the `postgres` service.
   Local (non-Docker) runs must set `DATABASE_URL`/`REDIS_URL` explicitly.
-- `NEXT_PUBLIC_API_URL` defaults to `/api` (relative → same origin via nginx).
-  Set it to an absolute URL only if you serve the frontend from another origin.
+- `NEXT_PUBLIC_API_URL` defaults to empty (same origin via nginx: the browser
+  calls `/api/...`, which is forwarded to the backend; call paths already
+  include the `/api` prefix). Set it to an absolute URL only if you serve the
+  frontend from another origin. The compose file also sets
+  `API_INTERNAL_URL=http://api:8000` for the Next server process (SSR fetches
+  need an absolute URL).
 - `SECRET_KEY` has no default in Compose: `docker compose up` fails fast if it
   is missing, which prevents accidental production boots with a default key.
 

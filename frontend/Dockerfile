@@ -2,8 +2,9 @@
 # ------------------------------------------------------------------
 # AI Vendor Outreach Platform - frontend image
 # Next.js app router; production server via `next start`.
-# NEXT_PUBLIC_API_URL is baked at build time (default: same-origin /api,
-# which the reverse proxy forwards to the backend - no CORS in prod).
+# NEXT_PUBLIC_API_URL is baked at build time. Default: empty = same-origin,
+# i.e. the browser calls /api/... and the reverse proxy forwards /api to the
+# backend - no CORS in prod. Call paths already include the /api prefix.
 # ------------------------------------------------------------------
 FROM node:24-alpine AS build
 
@@ -12,7 +13,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-ARG NEXT_PUBLIC_API_URL=/api
+ARG NEXT_PUBLIC_API_URL=
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 

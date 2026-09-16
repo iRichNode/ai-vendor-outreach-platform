@@ -2,7 +2,10 @@
  * Single HTTP helper for the FastAPI backend.
  *
  * Rules implemented here:
- *  - Base URL comes from NEXT_PUBLIC_API_URL (default http://127.0.0.1:8000).
+ *  - Base URL comes from NEXT_PUBLIC_API_URL (baked at build time). Default is
+ *    "" (empty) = same-origin, i.e. requests go to /api/... and the reverse
+ *    proxy forwards them to the backend. For `next dev` outside compose, set
+ *    NEXT_PUBLIC_API_URL=http://127.0.0.1:8000.
  *  - Every request is sent with `credentials: "include"` so the HttpOnly session
  *    cookie travels with the request. The browser owns the cookie: this app never
  *    reads, writes or stores any token/session material.
@@ -12,9 +15,10 @@
  *  - 401 responses bounce the browser to /login.
  */
 
-export const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
-).replace(/\/+$/, "");
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(
+  /\/+$/,
+  ""
+);
 
 export type Json = Record<string, any>;
 export type AnyRecord = Record<string, any>;

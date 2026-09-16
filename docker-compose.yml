@@ -167,11 +167,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     restart: unless-stopped
     environment:
       PORT: 3000
       HOSTNAME: 0.0.0.0
+      # Absolute origin for the Next server process (SSR); the browser keeps
+      # using same-origin /api via the reverse proxy.
+      API_INTERNAL_URL: http://api:8000
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
       interval: 10s

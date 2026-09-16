@@ -1,7 +1,8 @@
 # AI Vendor Outreach — Frontend
 
 Next.js 15 (App Router) + TypeScript + Tailwind CSS v4 dashboard for the FastAPI
-backend at `http://127.0.0.1:8000`.
+backend. In production the browser talks same-origin `/api/...` through the
+reverse proxy; for `next dev` point it at your local API.
 
 ```bash
 npm install       # 46 packages
@@ -9,11 +10,15 @@ npm run build     # exits 0, emits .next/
 npm start         # serve the production build
 ```
 
-`NEXT_PUBLIC_API_URL` overrides the API base (default `http://127.0.0.1:8000`).
+`NEXT_PUBLIC_API_URL` overrides the API base. Default is **empty** = same-origin
+(call paths already include `/api`). For `next dev` use
+`NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npm run dev`.
 
 ## HTTP rules (lib/api.ts)
 
-* Base URL from `NEXT_PUBLIC_API_URL`, default `http://127.0.0.1:8000`.
+* Base URL from `NEXT_PUBLIC_API_URL` — default empty (same-origin; paths
+  already include `/api`). Server-side (SSR) fetches use `API_INTERNAL_URL`
+  (compose sets `http://api:8000`).
 * Every call uses `credentials: "include"` — the HttpOnly session cookie is owned
   by the browser; **no token is ever stored by the frontend**.
 * Every POST/PUT/PATCH/DELETE adds `X-Requested-With: XMLHttpRequest`

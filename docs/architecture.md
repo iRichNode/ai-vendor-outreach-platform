@@ -72,9 +72,10 @@ port (80 by default).
 ### frontend — Next.js dashboard (`frontend/`)
 
 - React 19 + Tailwind 4. Reads the API base URL from the
-  `NEXT_PUBLIC_API_URL` build-time variable — a **relative** value such as
-  `/api` means "same origin as the dashboard", which is how it is deployed
-  behind the reverse proxy.
+  `NEXT_PUBLIC_API_URL` build-time variable — **empty** (default) means
+  "same origin as the dashboard" (call paths already include `/api`), which is
+  how it is deployed behind the reverse proxy. Server-side fetches (SSR) use
+  the absolute `API_INTERNAL_URL` (`http://api:8000` in compose).
 - Served by `next start` in the container (port 3000).
 
 ### reverse-proxy — nginx (`infra/nginx/`)

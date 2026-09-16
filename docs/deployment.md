@@ -204,7 +204,7 @@ The stack stays up at `http://your-domain`; fix and re-run the installer
 |---|---|
 | `/ready` returns 503 `degraded` | Check Postgres/Redis health; look at the `problems` array in the response |
 | `api` never becomes healthy | `docker compose logs api`; check `SECRET_KEY` is set (compose fails fast if not) |
-| Frontend shows API errors in browser console | Wrong `NEXT_PUBLIC_API_URL` baked at build; rebuild with `NEXT_PUBLIC_API_URL=/api` |
+| Frontend shows `Not Found` on login (network tab: `/api/api/...`) | Doubled `/api` prefix from an old build; ensure `NEXT_PUBLIC_API_URL` is empty/absent, then `docker compose build frontend && docker compose up -d frontend` |
 | Gmail OAuth token lost | It lives in the `appdata` volume (`/srv/app/data/gmail_token.json`); restore from your appdata backup |
 | Certificate expired / renewal failed | `journalctl -u avop-renew.service`; port 80 must stay open for the webroot challenge |
 | Migrations run twice | They are idempotent (Alembic version table); safe |
