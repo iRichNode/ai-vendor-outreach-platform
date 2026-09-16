@@ -20,7 +20,7 @@ Compose network.
 
 ## 2. Images
 
-- **backend image** (`backend/Dockerfile`): `python:3.14-slim` → installs
+- **backend image** (`backend/Dockerfile`): `python:3.12-slim` → installs
   requirements → entrypoint runs `alembic upgrade head`
   (skipped when `SKIP_AUTO_MIGRATE=1`) then
   `gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w ${GUNICORN_WORKERS:-2} -b 0.0.0.0:8000`.
@@ -98,7 +98,7 @@ point the app at an existing instance), `alembic upgrade head`, then start
 - `docker-compose.yml` passes `docker compose config` (7 services, anchors
   resolve, no schema errors).
 - `backend/Dockerfile` and `frontend/Dockerfile` follow current image tags
-  (`python:3.14-slim`, `node:24-alpine`) and were validated at the text level
+  (`python:3.12-slim`, `node:24-alpine`) and were validated at the text level
   (no Docker daemon in the build environment). Run one `docker compose build`
   on a machine with Docker to confirm before the first production deploy.
 - The nginx configuration passed `nginx -t`.

@@ -1,7 +1,7 @@
 # Development
 
-Local development without Docker. You need Python 3.13+ and Node 24+ (the repo
-was developed against Python 3.14 / Node 24), plus PostgreSQL and Redis
+Local development without Docker. You need Python 3.12+ and Node 24+ (the repo
+was developed against Python 3.12 / Node 24), plus PostgreSQL and Redis
 reachable at `127.0.0.1`.
 
 ## 1. One-time setup

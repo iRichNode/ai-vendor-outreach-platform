@@ -6,7 +6,7 @@
 # via alternate commands (see docker-compose.yml).
 # No secrets are baked in: every secret comes from the environment.
 # ------------------------------------------------------------------
-FROM python:3.14-slim
+FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
