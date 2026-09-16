@@ -29,6 +29,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app.main")
 
 
+async def bootstrap_initial_admin():
+    """Create the initial superuser from INITIAL_ADMIN_* env (idempotent).
+
+    Runs during the lifespan on startup. Returns the created User (or None when
+    any user already exists or the env vars are unset). Module-level so tests
+    can exercise the exact production code path, including session acquisition.
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as db:
+        return await setup_from_env_if_needed(db)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     settings = get_settings()
@@ -40,8 +52,7 @@ async def lifespan(_app: FastAPI):
     # any user exists or the env vars are unset). Failures are non-fatal so a
     # bootstrap problem can never prevent the API from serving.
     try:
-        async with get_session_factory() as db:
-            admin = await setup_from_env_if_needed(db)
+        admin = await bootstrap_initial_admin()
     except Exception:
         logger.exception("initial-admin bootstrap failed (non-fatal); continuing startup")
     else:

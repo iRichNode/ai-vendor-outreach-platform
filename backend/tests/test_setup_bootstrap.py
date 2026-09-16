@@ -21,6 +21,7 @@ from app.api.setup import setup_from_env_if_needed
 from app.config import get_settings
 from app.core.security import hash_password, verify_password
 from app.database import get_session_factory
+from app.main import bootstrap_initial_admin
 from app.models.user import User
 
 
@@ -108,3 +109,35 @@ async def test_noop_when_env_vars_missing(monkeypatch):
     async with _session() as db:
         assert await setup_from_env_if_needed(db) is None
     assert await _user_count() == 0
+
+
+async def test_lifespan_bootstrap_creates_admin_on_first_boot():
+    """Exercise the exact production path used by the app lifespan (session
+    acquisition included) — regression test for the async_sessionmaker misuse
+    that broke the VPS bootstrap."""
+    created = await bootstrap_initial_admin()
+    assert created is not None
+    assert created.username == "bootstrap_admin"
+    assert created.is_active is True
+    assert created.is_superuser is True
+    assert await _user_count() == 1
+
+
+async def test_lifespan_bootstrap_noop_when_users_exist():
+    """Same production path must no-op once any user exists."""
+    async with _session() as db:
+        db.add(
+            User(
+                username="someone_else",
+                email="someone@example.com",
+                password_hash=hash_password("not-the-bootstrap-secret"),
+                is_active=True,
+                is_superuser=False,
+            )
+        )
+        await db.commit()
+
+    assert await bootstrap_initial_admin() is None
+
+    assert await _user_count() == 1
+    assert await _usernames() == {"someone_else"}
